@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use reqwest::blocking::Client;
 use serde::Deserialize;
+use std::process::Command;
 use std::{fs, sync::mpsc, thread};
 use toml::{Table, Value};
 
@@ -66,16 +67,16 @@ fn test_read_cargo() {
     }
 }
 
-pub fn filter_lastest_crate(list: Vec<Crate>) -> Vec<Crate> {
+pub fn filter_latest_crate(list: Vec<Crate>) -> Vec<Crate> {
     let (tx, rx) = mpsc::sync_channel(10);
     for c in list {
         let tx = tx.clone();
         thread::spawn(move || {
             let ver = c.version.clone();
-            match query_crate_lastest_version(c) {
-                Ok(lastest) => {
-                    if lastest.version != ver {
-                        tx.send(lastest).expect("send crate error");
+            match query_crate_latest_version(c) {
+                Ok(latest) => {
+                    if latest.version != ver {
+                        tx.send(latest).expect("send crate error");
                     }
                 }
                 Err(e) => println!("query crate lastest version error: {e:?}"),
@@ -91,7 +92,7 @@ pub fn filter_lastest_crate(list: Vec<Crate>) -> Vec<Crate> {
 }
 
 #[test]
-fn test_filter_lastest_crate() {
+fn test_filter_latest_crate() {
     let list = vec![
         Crate::new_by_name("anyhow".into()),
         Crate::new_by_name("tokio".into()),
@@ -101,12 +102,12 @@ fn test_filter_lastest_crate() {
             features: "".into(),
         },
     ];
-    let list = filter_lastest_crate(list);
+    let list = filter_latest_crate(list);
     println!("list: {:#?}", list);
 }
 
 #[derive(Deserialize, Debug)]
-struct LastestResp {
+struct LatestResp {
     #[serde(rename = "crate")]
     crate_obj: CrateObj,
 }
@@ -116,8 +117,8 @@ struct CrateObj {
     max_stable_version: String,
 }
 
-pub fn query_crate_lastest_version(c: Crate) -> Result<Crate> {
-    let resp: LastestResp = Client::builder()
+pub fn query_crate_latest_version(c: Crate) -> Result<Crate> {
+    let resp: LatestResp = Client::builder()
         .user_agent(USER_AGENT)
         .build()?
         .get(format!("https://crates.io/api/v1/crates/{}", c.name))
@@ -131,9 +132,31 @@ pub fn query_crate_lastest_version(c: Crate) -> Result<Crate> {
 }
 
 #[test]
-fn test_query_crate_lastest_version() {
-    match query_crate_lastest_version(Crate::new_by_name("tokio".into())) {
+fn test_query_crate_latest_version() {
+    match query_crate_latest_version(Crate::new_by_name("tokio".into())) {
         Ok(c) => println!("crate: {:?}", c),
+        Err(e) => println!("err: {e:?}"),
+    }
+}
+
+pub fn update_crate(c: &Crate) -> Result<bool> {
+    let mut cargo = Command::new("cargo");
+    cargo.arg("add").arg(format!("{}@{}", c.name, c.version));
+    if !c.features.is_empty() {
+        cargo.arg("--features").arg(&c.features);
+    }
+    let status = cargo.status()?;
+    Ok(status.success())
+}
+
+#[test]
+fn test_update_crate() {
+    match update_crate(&Crate {
+        name: "tokio".into(),
+        version: "1.32.0".into(),
+        features: "rt-multi-thread,macros,sync,time".into(),
+    }) {
+        Ok(success) => println!("success: {success}"),
         Err(e) => println!("err: {e:?}"),
     }
 }

@@ -1,13 +1,18 @@
 [package]
 name = "crate-update"
 version = "0.1.0"
+authors = ["yscsky"]
 edition = "2021"
+description = "A tool to update cargo project dependent crates"
+readme = "readme.md"
+repository = "https://github.com/yscsky/crate-update"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.75"
-clap = { version = "4.4.0", features = ["derive"] }
+clap = { version = "4.4.1", features = ["derive"] }
 reqwest = { version = "0.11.20", features = ["blocking", "json"] }
 serde = { version = "1.0.188", features = ["derive"] }
 toml = "0.7.6"
